@@ -4,9 +4,9 @@
 display_menu() {
   echo "-------------------------------------------------------------"
   echo "Step 1: Please select the resource tier for your kubelife installation:"
-  echo "1. Tier 1: 500MB RAM, 1GB Storage"
-  echo "2. Tier 2: 1GB RAM, 2GB Storage"
-  echo "3. Tier 3: 2GB RAM, 4GB Storage"
+  echo "  1. Tier 1: 500MB RAM, 1GB Storage"
+  echo "  2. Tier 2: 1GB RAM, 2GB Storage"
+  echo "  3. Tier 3: 2GB RAM, 4GB Storage"
   echo "-------------------------------------------------------------"
   echo "Please enter the number corresponding to your choice (1-3):"
 }
@@ -47,10 +47,11 @@ backup_kubelife_data() {
   TIMESTAMP=$(date +"%Y%m%d%H%M%S")
 
   # Create backup directory if it doesn't exist
+  echo "Creating backup directory at $BACKUP_DIR..."
   mkdir -p $BACKUP_DIR
 
   # Backup kubernetes-related files
-  echo "Backing up kubelife data..."
+  echo "Backing up kubelife data to $BACKUP_DIR..."
   cp -r /etc/kubernetes $BACKUP_DIR/kubernetes_config_$TIMESTAMP
   cp -r /var/lib/kubelet $BACKUP_DIR/kubelet_data_$TIMESTAMP
   cp -r /var/lib/minikube $BACKUP_DIR/minikube_data_$TIMESTAMP
@@ -59,31 +60,56 @@ backup_kubelife_data() {
   echo "Backup complete. Your Kubelife server data is stored in: $BACKUP_DIR"
 }
 
+# Step 0: Ensure necessary dependencies are installed
+check_prerequisites() {
+  if ! command -v curl &> /dev/null; then
+    echo "Error: curl could not be found. Please install curl to proceed."
+    exit 1
+  fi
+  if ! systemctl is-active --quiet docker; then
+    echo "Error: Docker is not installed or not running. Please install Docker to proceed."
+    exit 1
+  fi
+}
+
 # Start the script execution
+set -e
+
 echo "-------------------------------------------------------------"
 echo "Step 3: Starting the kubelife installation..."
 echo "-------------------------------------------------------------"
 
+# Check prerequisites
+check_prerequisites
+
 # Display the menu and capture user input
 display_menu
-read -p "Enter your choice (1, 2, or 3): " choice
+while true; do
+  read -p "Enter your choice (1, 2, or 3): " choice
+  if [[ "$choice" =~ ^[1-3]$ ]]; then
+    break
+  else
+    echo "Invalid input! Please enter a number between 1 and 3."
+  fi
+done
 
 # Configure based on the user's selection
 configure_tier $choice
 
 # Ask for backup option
 ask_for_backup
-read -p "Enter your choice (y or n): " backup_choice
-
-if [[ "$backup_choice" == "y" || "$backup_choice" == "Y" ]]; then
-  # Step 4: Back up kubelife data
-  backup_kubelife_data
-elif [[ "$backup_choice" == "n" || "$backup_choice" == "N" ]]; then
-  echo "Backup not selected. Continuing with installation..."
-else
-  echo "Invalid input. Exiting script."
-  exit 1
-fi
+while true; do
+  read -p "Enter your choice (y or n): " backup_choice
+  if [[ "$backup_choice" == "y" || "$backup_choice" == "Y" ]]; then
+    backup_kubelife_data
+    break
+  elif [[ "$backup_choice" == "n" || "$backup_choice" == "N" ]]; then
+    echo "Backup not selected. Continuing with installation..."
+    break
+  else
+    echo "Invalid input! Please enter 'y' for yes or 'n' for no."
+  fi
+done
 
 # Inform the user of the selected configuration
 echo "-------------------------------------------------------------"
@@ -123,16 +149,16 @@ echo "-------------------------------------------------------------"
 echo "Step 9: Setting up kubelife with $RAM RAM and $STORAGE storage..."
 case $choice in
   1)
-    echo "Allocating 500MB RAM and 1GB Storage for Minikube with --force flag..."
-    minikube start --memory 512mb --disk-size 1g --driver=docker --force > /dev/null 2>&1
+    echo "Allocating 500MB RAM and 1GB Storage for Minikube..."
+    minikube start --memory 512mb --disk-size 1g --driver=docker --force
     ;;
   2)
-    echo "Allocating 1GB RAM and 2GB Storage for Minikube with --force flag..."
-    minikube start --memory 1g --disk-size 2g --driver=docker --force > /dev/null 2>&1
+    echo "Allocating 1GB RAM and 2GB Storage for Minikube..."
+    minikube start --memory 1g --disk-size 2g --driver=docker --force
     ;;
   3)
-    echo "Allocating 2GB RAM and 4GB Storage for Minikube with --force flag..."
-    minikube start --memory 2g --disk-size 4g --driver=docker --force > /dev/null 2>&1
+    echo "Allocating 2GB RAM and 4GB Storage for Minikube..."
+    minikube start --memory 2g --disk-size 4g --driver=docker --force
     ;;
 esac
 
@@ -144,4 +170,5 @@ echo "-------------------------------------------------------------"
 # Step 11: Verify if kubelife started successfully
 echo "Step 11: Verifying kubelife status..."
 kubelife status
-echo "With your dedicated resources and powerful tools, you're now ready to deploy and manage containers like a pro on a singleNode!"
+echo "-------------------------------------------------------------"
+echo "With your dedicated resources and powerful tools, you're now ready to deploy and manage containers like a pro on a single-node setup!"
